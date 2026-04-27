@@ -1,0 +1,10 @@
+{
+  "path": "/home/jay/IdeaProjects/f1/microservice/devtools/config/1.0/loans.yml",
+  "key": "AESKey",
+  "properties": [
+    "spring.datasource.username",
+    "spring.datasource.password",
+    "file.storage.domain.accessKey",
+    "promissory-note-provider.ribbon.listOfServers"
+  ]
+}

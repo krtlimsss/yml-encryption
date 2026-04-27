@@ -1,54 +1,67 @@
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
-import java.security.MessageDigest;
+
+
+import java.io.File;
+import java.net.URISyntaxException;
 
 public class Encryptor {
 
-    private static final String CIPHER_INSTANCE = "AES/CBC/PKCS5Padding";
+    public static void main(String[] args) {
 
-    public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("Usage: java -jar encrypt.jar <text> <encryption-key>");
+        System.out.println("================================================");
+        System.out.println("  YML Property Encryptor");
+        System.out.println("================================================");
+
+        // ── Step 1: Locate config file next to the jar ────────────────────────
+        File configFile = resolveConfigFile();
+
+        System.out.println("[Config] Looking for config file: " + configFile.getAbsolutePath());
+
+        if (!configFile.exists()) {
+            System.err.println("[Config] ERROR: Config file not found: " + configFile.getAbsolutePath());
+            System.err.println("[Config]        Place 'encryptor-config.json' next to the jar file.");
             System.exit(1);
         }
 
-        String text = args[0];
-        String key = args[1];
+        // ── Step 1b: Read and validate config ─────────────────────────────────
+        EncryptorConfig config = ConfigReader.read(configFile);
 
-        SecretKeySpec secretKey = getKey(key);
+        // ── Steps 2–4: Process the YML file ───────────────────────────────────
+        YmlProcessor.process(config);
 
-        Cipher cipher = Cipher.getInstance(CIPHER_INSTANCE);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-
-        byte[] encrypted = cipher.doFinal(text.getBytes("UTF-8"));
-        String encoded = Base64.getEncoder().encodeToString(encrypted);
-
-        System.out.println("Encrypted Value = " + encoded);
+        System.out.println();
+        System.out.println("================================================");
+        System.out.println("  Encryptor finished.");
+        System.out.println("================================================");
     }
 
-    private static SecretKeySpec getKey(String myKey) throws Exception {
-        byte[] key = myKey.getBytes("UTF-8");
+    /**
+     * Resolves the directory where the jar file is located,
+     * then looks for encryptor-config.json in that same directory.
+     * Works on both Windows and Linux.
+     */
+    private static File resolveConfigFile() {
+        try {
+            File jarLocation = new File(
+                    Encryptor.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+            );
 
-        MessageDigest sha = MessageDigest.getInstance("SHA-256");
-        key = sha.digest(key);
+            // When running as a jar, jarLocation is the jar file itself
+            // When running in an IDE, jarLocation is the classes directory
+            File directory = jarLocation.isFile()
+                    ? jarLocation.getParentFile()
+                    : jarLocation;
 
-        // use first 16 bytes = AES-128
-        byte[] keyBytes = new byte[16];
-        System.arraycopy(key, 0, keyBytes, 0, 16);
+            return new File(directory, "encryptor-config.json");
 
-        return new SecretKeySpec(keyBytes, "AES");
-    }
-
-    public static String decrypt(String encryptedText, String key) throws Exception {
-        SecretKeySpec secretKey = getKey(key);
-
-        Cipher cipher = Cipher.getInstance(CIPHER_INSTANCE);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
-
-        byte[] decoded = Base64.getDecoder().decode(encryptedText);
-        byte[] decrypted = cipher.doFinal(decoded);
-
-        return new String(decrypted, "UTF-8");
+        } catch (URISyntaxException e) {
+            // Fallback: look in current working directory
+            System.err.println("[Config] WARN: Could not resolve jar location, " +
+                    "falling back to working directory.");
+            return new File(System.getProperty("user.dir"), "encryptor-config.json");
+        }
     }
 }
